@@ -68,6 +68,7 @@
 
 /* USER CODE BEGIN PV */
 uint32_t go_to_bootloader = 0;
+uint32_t link_register_latch __attribute__ ((section("core_dump")));
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
