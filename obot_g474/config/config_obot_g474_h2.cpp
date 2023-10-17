@@ -53,7 +53,7 @@ struct InitCode
 namespace config
 {
     const uint32_t main_loop_frequency = 10000;
-    const uint32_t pwm_frequency = 40000;
+    const uint32_t pwm_frequency = 30000;
     InitCode init_code;
 
     // GPIO motor_encoder_cs = {*GPIOA, 4, GPIO::OUTPUT};
@@ -113,7 +113,12 @@ namespace config
     /* MAX31875 board_temperature(i2c1); */
     DriverMPS driver;
 
+#if defined(PALM_BOARD)
+    HRPWM3 motor_pwm(pwm_frequency, *HRTIM1, 3, 3, 5, 2000, 2000);
+#else
     HRPWM3 motor_pwm(pwm_frequency, *HRTIM1, 3, 3, 0, 2000, 2000);
+#endif
+
     USB1 usb;
     FastLoop fast_loop = {(int32_t)pwm_frequency, motor_pwm, motor_encoder, param->fast_loop_param, &I_A_DR, &I_B_DR, &I_C_DR, &V_BUS_DR};
     LED led = {const_cast<uint16_t *>(reinterpret_cast<volatile uint16_t *>(&TIM_R)),
