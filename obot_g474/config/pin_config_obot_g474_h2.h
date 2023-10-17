@@ -118,7 +118,10 @@ void pin_config_obot_g474_h2() {
         ***************************************************/
         GPIO_SETL(B, 3, GPIO_MODE::ALT_FUN, GPIO_SPEED::VERY_HIGH, 6);   // SPI3 CLK
         GPIO_SETL(B, 4, GPIO_MODE::ALT_FUN, GPIO_SPEED::VERY_HIGH, 6);   // SPI3 HIDO
+
+#if !defined(PALM_BOARD)
         GPIO_SETL(B, 5, GPIO_MODE::ALT_FUN, GPIO_SPEED::VERY_HIGH, 6);   // SPI3 HODI 
+#endif
 
         GPIO_SETH(A, 15, GPIO_MODE::OUTPUT, GPIO_SPEED::VERY_HIGH, 0);   // spi3 cs
 
