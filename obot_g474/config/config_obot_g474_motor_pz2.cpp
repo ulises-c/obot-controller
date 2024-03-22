@@ -19,7 +19,7 @@
 
 using TorqueSensor = TorqueSensorMultiplex<MAX11254<>, ICPZ>;
 using OutputEncoder = TorqueSensor::SecondarySensor;
-using MotorEncoder = ICPZ;
+using MotorEncoder = EncoderBase; //ICPZ;
 
 
 struct InitCode {
@@ -31,10 +31,10 @@ struct InitCode {
       SPI1->CR2 = (7 << SPI_CR2_DS_Pos) | SPI_CR2_FRXTH;   // 8 bit
       // ORDER DEPENDANCE SPE set last
       SPI1->CR1 = SPI_CR1_MSTR | (3 << SPI_CR1_BR_Pos) | SPI_CR1_SSI | SPI_CR1_SSM;    // baud = clock/16
-      DMAMUX1_Channel0->CCR =  DMA_REQUEST_SPI3_TX;
-      DMAMUX1_Channel1->CCR =  DMA_REQUEST_SPI3_RX;
-      DMAMUX1_Channel2->CCR =  DMA_REQUEST_SPI1_TX;
-      DMAMUX1_Channel3->CCR =  DMA_REQUEST_SPI1_RX;
+      DMAMUX1_Channel4->CCR =  DMA_REQUEST_SPI3_TX;
+      DMAMUX1_Channel5->CCR =  DMA_REQUEST_SPI3_RX;
+      DMAMUX1_Channel6->CCR =  DMA_REQUEST_SPI1_TX;
+      DMAMUX1_Channel7->CCR =  DMA_REQUEST_SPI1_RX;
 
 
       GPIO_SETL(D, 2, GPIO_MODE::OUTPUT, GPIO_SPEED::VERY_HIGH, 0);   // PD2-> motor encoder cs
@@ -62,6 +62,12 @@ struct InitCode {
     //   GPIO_SETL(C, 4, GPIO_MODE::OUTPUT, GPIO_SPEED::MEDIUM, 0); // TODO: figure out why base config isn't setting this
     //   GPIOC->BSRR = GPIO_BSRR_BS4; // bmi270
 
+      DMAMUX1_Channel0->CCR = DMAMUX_CxCR_EGE | 95; // HRTIM_M
+      DMAMUX1_Channel4->CCR = 16 << DMAMUX_CxCR_SYNC_ID_Pos | 5 << DMAMUX_CxCR_NBREQ_Pos | 1 << DMAMUX_CxCR_SPOL_Pos | DMAMUX_CxCR_SE | DMA_REQUEST_SPI3_TX; // sync to hrtim
+      HRTIM1->sMasterRegs.MDIER = HRTIM_MDIER_MCMP3DE;
+      HRTIM1->sMasterRegs.MCMP3R = 300;
+    //   DMAMUX1_Channel0->CCR = 1; // Req G0
+    //   DMAMUX1_RequestGenerator0->RGCR = 1 << DMAMUX_RGxCR_GPOL_Pos | DMAMUX_RGxCR_GE | 16 << DMAMUX_RGxCR_SIG_ID_Pos;
 
 
       GPIO_SETH(A, 9, GPIO_MODE::OUTPUT, GPIO_SPEED::MEDIUM, 0);
@@ -84,18 +90,18 @@ namespace config {
     InitCode init_code;
 
     GPIO motor_encoder_cs(*GPIOD, 2, GPIO::OUTPUT);
-    SPIDMA spi3_dma(*SPI3, motor_encoder_cs, *DMA1_Channel1, *DMA1_Channel2);
-    MotorEncoder motor_encoder(spi3_dma, ICPZ::PZ08S);
+    SPIDMA spi3_dma(*SPI3, motor_encoder_cs, *DMA1_Channel5, *DMA1_Channel6);
+    MotorEncoder motor_encoder;//(spi3_dma, ICPZ::PZ08S);
 
     
     GPIO output_encoder_cs(*GPIOC, 3, GPIO::OUTPUT);
-    SPIDMA spi1_dma(*SPI1, output_encoder_cs, *DMA1_Channel3, *DMA1_Channel4, 100, 100, nullptr,
+    SPIDMA spi1_dma(*SPI1, output_encoder_cs, *DMA1_Channel7, *DMA1_Channel8, 100, 100, nullptr,
         SPI_CR1_MSTR | (3 << SPI_CR1_BR_Pos) | SPI_CR1_SSI | SPI_CR1_SSM);
 
-    ICPZ output_encoder_direct(spi1_dma, ICPZ::PZ03S);    
+    ICPZ output_encoder_direct(spi1_dma, ICPZ::PZ03S); 
     
     GPIO torque_sensor_cs(*GPIOA, 0, GPIO::OUTPUT);
-    SPIDMA spi1_dma2(*SPI1, torque_sensor_cs, *DMA1_Channel3, *DMA1_Channel4, 100, 100, nullptr,
+    SPIDMA spi1_dma2(*SPI1, torque_sensor_cs, *DMA1_Channel7, *DMA1_Channel8, 100, 100, nullptr,
         SPI_CR1_MSTR | 6 << SPI_CR1_BR_Pos | SPI_CR1_SSI | SPI_CR1_SSM);
     MAX11254<> torque_sensor_direct(spi1_dma2, 1);
     TorqueSensor torque_sensor(torque_sensor_direct, output_encoder_direct);
@@ -125,7 +131,7 @@ namespace config {
 void config_init() {
     config::motor_pwm.set_frequency_multiplier(param->pwm_multiplier);
 
-    ICPZ_SET_DEBUG_VARIABLES("m", System::api, config::motor_encoder);
+    //ICPZ_SET_DEBUG_VARIABLES("m", System::api, config::motor_encoder);
 
     // System::api.add_api_variable("mcrc_latch", new const APIUint32(&config::motor_encoder.crc_error_raw_latch_));
     System::api.add_api_variable("Tmotor", new const APICallbackFloat([](){ return config::motor_temperature.read(); }));
@@ -178,12 +184,12 @@ void config_maintenance() {
         float Tambient4 = ambient4_temperature_filter.update(config::ambient_temperature_4.read());
         round_robin_logger.log_data(AMBIENT_TEMPERATURE_4_INDEX, Tambient4);
     }
-    if(config::motor_encoder.crc_error_count_ > 100 || config::motor_encoder.error_count_ > 100 ||
-        config::motor_encoder.warn_count_ > pow(2,31)) {
-            config::main_loop.status_.error.motor_encoder = true;
-    }
-    round_robin_logger.log_data(MOTOR_ENCODER_CRC_INDEX, config::motor_encoder.crc_error_count_);
-    round_robin_logger.log_data(MOTOR_ENCODER_ERROR_INDEX, config::motor_encoder.error_count_);
+    // if(config::motor_encoder.crc_error_count_ > 100 || config::motor_encoder.error_count_ > 100 ||
+    //     config::motor_encoder.warn_count_ > pow(2,31)) {
+    //         config::main_loop.status_.error.motor_encoder = true;
+    // }
+    // round_robin_logger.log_data(MOTOR_ENCODER_CRC_INDEX, config::motor_encoder.crc_error_count_);
+    // round_robin_logger.log_data(MOTOR_ENCODER_ERROR_INDEX, config::motor_encoder.error_count_);
 
     if(config::output_encoder_direct.crc_error_count_ > 100 || config::output_encoder_direct.error_count_ > 100 ||
         config::output_encoder_direct.warn_count_ > pow(2,31)) {
