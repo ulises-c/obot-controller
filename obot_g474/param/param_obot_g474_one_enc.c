@@ -72,6 +72,9 @@ const Param __attribute__ ((section ("flash_param"))) param_store = {
     .main_loop_param.velocity_controller_param.velocity.command_max = 3,
     .main_loop_param.velocity_controller_param.acceleration_limit = 100,
 
+    .fast_loop_param.beep_amplitude = 5,
+    .fast_loop_param.beep_frequency = 880,
+
     .main_loop_param.output_encoder.cpr = 65536,
     .main_loop_param.host_timeout = 0,
     .main_loop_param.safe_mode = DAMPED,
